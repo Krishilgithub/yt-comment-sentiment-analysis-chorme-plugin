@@ -5,8 +5,8 @@ stages:
     deps:
     - path: params.yaml
       hash: md5
-      md5: 8a1f6200bbb316388c965194d116c5af
-      size: 33
+      md5: b3a23243249d0ed223a17a3c0c440f79
+      size: 162
     - path: src/data/data_ingestion.py
       hash: md5
       md5: dd7f5d5c09aa2267666ba0e94b120b53
@@ -44,3 +44,32 @@ stages:
       md5: ba42408e7bd1e85685474d6a349ae57e.dir
       size: 5134850
       nfiles: 2
+  model_building:
+    cmd: python src/model/model_building.py
+    deps:
+    - path: data/interim/train_processed.csv
+      hash: md5
+      md5: 35027dfda8274bd9356544f2ff358aa4
+      size: 4134324
+    - path: src/model/model_building.py
+      hash: md5
+      md5: aabfc4954a6da3a8025e3c1b17213893
+      size: 5679
+    params:
+      params.yaml:
+        model_building.learning_rate: 0.09
+        model_building.max_depth: 20
+        model_building.max_features: 10000
+        model_building.n_estimators: 367
+        model_building.ngram_range:
+        - 1
+        - 3
+    outs:
+    - path: lgbm_model.pkl
+      hash: md5
+      md5: 9a7ad33a4fc2c11ef58dea29bed445a4
+      size: 4116887
+    - path: tfidf_vectorizer.pkl
+      hash: md5
+      md5: e507fe8c36a72e07b8889a8072330c29
+      size: 384115
