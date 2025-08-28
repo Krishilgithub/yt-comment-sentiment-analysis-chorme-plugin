@@ -1,6 +1,4 @@
 [core]
     remote = awsremote
-['remote "myremote"']
-    url = C:\Temp
 ['remote "awsremote"']
     url = s3://yt-comment-dvc-bucket-krishil
