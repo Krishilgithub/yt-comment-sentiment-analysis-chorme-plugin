@@ -6,6 +6,7 @@ matplotlib.use('Agg')  # Use non-interactive backend before importing pyplot
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import io
+import json
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
 import mlflow
@@ -50,18 +51,69 @@ def preprocess_comment(comment):
         print(f"Error in preprocessing comment: {e}")
         return comment
 
-# Load the model and vectorizer from the model registry and local storage
-def load_model_and_vectorizer(model_name, model_version, vectorizer_path):
-    # Set MLflow tracking URI to your server
-    mlflow.set_tracking_uri("http://51.21.200.99:5000/")  # Replace with your MLflow tracking URI
-    client = MlflowClient()
-    model_uri = f"models:/{model_name}/{model_version}"
-    model = mlflow.pyfunc.load_model(model_uri)
-    vectorizer = joblib.load(vectorizer_path)  # Load the vectorizer
-    return model, vectorizer
+# Load the model and vectorizer from MLflow with fallback to local storage
+def load_model_and_vectorizer_with_mlflow_fallback():
+    """Load model and vectorizer from MLflow with fallback to local files"""
+    import os
+    
+    # First, try to load from MLflow
+    try:
+        print("Attempting to load model from MLflow server...")
+        # Set MLflow tracking URI to your server with timeout
+        mlflow.set_tracking_uri("http://51.21.200.99:5000/")
+        
+        # Set timeout for MLflow operations (if supported)
+        import os as mlflow_os
+        mlflow_os.environ["MLFLOW_HTTP_REQUEST_TIMEOUT"] = "30"  # 30 seconds timeout
+        
+        # Load experiment info
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(current_dir)
+        experiment_info_path = os.path.join(project_root, 'experiment_info.json')
+        
+        with open(experiment_info_path, 'r') as f:
+            experiment_info = json.load(f)
+        
+        run_id = experiment_info['run_id']
+        model_path = experiment_info['model_path']
+        
+        # Try to load model from MLflow
+        model_uri = f"runs:/{run_id}/{model_path}"
+        model = mlflow.pyfunc.load_model(model_uri)
+        
+        # Load vectorizer from local storage (as it's not stored in MLflow)
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(current_dir)
+        vectorizer_path = os.path.join(project_root, "tfidf_vectorizer.pkl")
+        vectorizer = joblib.load(vectorizer_path)
+        
+        print("Successfully loaded model from MLflow and vectorizer from local storage")
+        return model, vectorizer
+        
+    except Exception as mlflow_error:
+        print(f"Failed to load from MLflow: {mlflow_error}")
+        print("Falling back to local model files...")
+        
+        # Fallback to local model files
+        try:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(current_dir)
+            
+            full_model_path = os.path.join(project_root, "lgbm_model.pkl")
+            full_vectorizer_path = os.path.join(project_root, "tfidf_vectorizer.pkl")
+            
+            model = joblib.load(full_model_path)
+            vectorizer = joblib.load(full_vectorizer_path)
+            
+            print("Successfully loaded model and vectorizer from local storage")
+            return model, vectorizer
+            
+        except Exception as local_error:
+            print(f"Failed to load from local storage: {local_error}")
+            raise Exception(f"Failed to load models from both MLflow and local storage. MLflow error: {mlflow_error}, Local error: {local_error}")
 
 # Initialize the model and vectorizer
-model, vectorizer = load_model_and_vectorizer("my_model", "1", "./tfidf_vectorizer.pkl")  # Update paths and versions as needed
+model, vectorizer = load_model_and_vectorizer_with_mlflow_fallback()
 
 @app.route('/')
 def home():
@@ -76,22 +128,71 @@ def predict_with_timestamps():
         return jsonify({"error": "No comments provided"}), 400
 
     try:
+        print(f"Received {len(comments_data)} comments for prediction")
         comments = [item['text'] for item in comments_data]
         timestamps = [item['timestamp'] for item in comments_data]
 
         # Preprocess each comment before vectorizing
+        print("Preprocessing comments...")
         preprocessed_comments = [preprocess_comment(comment) for comment in comments]
         
         # Transform comments using the vectorizer
+        print("Vectorizing comments...")
         transformed_comments = vectorizer.transform(preprocessed_comments)
+        print(f"Transformed comments shape: {transformed_comments.shape}")
         
-        # Make predictions
-        predictions = model.predict(transformed_comments).tolist()  # Convert to list
+        # Make predictions - handle different model types
+        print("Making predictions...")
+        print(f"Model type: {type(model)}")
         
-        # Convert predictions to strings for consistency
+        # Convert the TF-IDF features to the format expected by the model
+        if hasattr(transformed_comments, 'toarray'):
+            # If it's a sparse matrix, convert to dense array
+            features = transformed_comments.toarray()
+        else:
+            features = transformed_comments
+        
+        print(f"Features shape for model: {features.shape}")
+        print(f"Features type: {type(features)}")
+        
+        # For MLflow models, convert to DataFrame with proper feature names
+        if 'mlflow' in str(type(model)).lower():
+            try:
+                # Get feature names from the vectorizer
+                feature_names = vectorizer.get_feature_names_out()
+                print(f"Number of feature names: {len(feature_names)}")
+                
+                # Create DataFrame with proper column names
+                import pandas as pd
+                features_df = pd.DataFrame(features, columns=feature_names)
+                print(f"Created DataFrame with shape: {features_df.shape}")
+                
+                # Make predictions using DataFrame
+                predictions = model.predict(features_df)
+                print(f"MLflow model predictions successful")
+            except Exception as mlflow_error:
+                print(f"MLflow DataFrame prediction failed: {mlflow_error}")
+                # Fallback to regular array prediction
+                predictions = model.predict(features)
+        else:
+            # Regular sklearn model
+            predictions = model.predict(features)
+        
+        print(f"Raw predictions shape: {predictions.shape if hasattr(predictions, 'shape') else len(predictions)}")
+        print(f"Raw predictions sample: {predictions[:5] if len(predictions) > 5 else predictions}")
+        
+        # Convert predictions to list and then to strings
+        if hasattr(predictions, 'tolist'):
+            predictions = predictions.tolist()
         predictions = [str(pred) for pred in predictions]
+        print(f"Final predictions (first 5): {predictions[:5]}")
+        
     except Exception as e:
-        return jsonify({"error": f"Prediction failed: {str(e)}"}), 500
+        error_msg = f"Prediction failed: {str(e)}"
+        print(f"ERROR: {error_msg}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": error_msg}), 500
     
     # Return the response with original comments, predicted sentiments, and timestamps
     response = [{"comment": comment, "sentiment": sentiment, "timestamp": timestamp} for comment, sentiment, timestamp in zip(comments, predictions, timestamps)]
@@ -112,10 +213,35 @@ def predict():
         # Transform comments using the vectorizer
         transformed_comments = vectorizer.transform(preprocessed_comments)
         
-        # Make predictions
-        predictions = model.predict(transformed_comments).tolist()  # Convert to list
+        # Convert the TF-IDF features to the format expected by the model
+        if hasattr(transformed_comments, 'toarray'):
+            features = transformed_comments.toarray()
+        else:
+            features = transformed_comments
         
-        # Convert predictions to strings for consistency
+        # For MLflow models, convert to DataFrame with proper feature names
+        if 'mlflow' in str(type(model)).lower():
+            try:
+                # Get feature names from the vectorizer
+                feature_names = vectorizer.get_feature_names_out()
+                
+                # Create DataFrame with proper column names
+                import pandas as pd
+                features_df = pd.DataFrame(features, columns=feature_names)
+                
+                # Make predictions using DataFrame
+                predictions = model.predict(features_df)
+            except Exception as mlflow_error:
+                print(f"MLflow DataFrame prediction failed: {mlflow_error}")
+                # Fallback to regular array prediction
+                predictions = model.predict(features)
+        else:
+            # Regular sklearn model
+            predictions = model.predict(features)
+        
+        # Convert predictions to list and then to strings
+        if hasattr(predictions, 'tolist'):
+            predictions = predictions.tolist()
         predictions = [str(pred) for pred in predictions]
     except Exception as e:
         return jsonify({"error": f"Prediction failed: {str(e)}"}), 500
