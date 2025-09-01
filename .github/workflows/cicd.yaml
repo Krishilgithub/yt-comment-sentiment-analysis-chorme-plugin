@@ -49,7 +49,7 @@ jobs:
           echo "Testing AWS credentials..."
           aws sts get-caller-identity
           echo "Testing S3 access..."
-          aws s3 ls s3://yt-comment-dvc-bucket-krishil/ --region us-east-1 || echo "S3 bucket access failed, but continuing..."
+          aws s3 ls s3://yt-comment-dvc-bucket-krishil/ --region eu-north-1 || echo "S3 bucket access failed, but continuing..."
 
       - name: Run pipeline
         env:
