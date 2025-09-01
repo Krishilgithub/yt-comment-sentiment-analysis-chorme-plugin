@@ -32,11 +32,11 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
+          AWS_DEFAULT_REGION: eu-north-1
         run: |
           aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws configure set default.region us-east-1
+          aws configure set default.region eu-north-1
           aws configure list
           echo "AWS CLI configured successfully"
 
@@ -55,8 +55,8 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1 # Replace with your AWS region
-          MLFLOW_S3_ENDPOINT_URL: https://s3.us-east-1.amazonaws.com
+          AWS_DEFAULT_REGION: eu-north-1 # Replace with your AWS region
+          MLFLOW_S3_ENDPOINT_URL: https://s3.eu-north-1.amazonaws.com
           MLFLOW_TRACKING_URI: http://51.21.200.99:5000/
         run: |
           dvc repro
@@ -65,7 +65,7 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1 # Replace with your AWS region
+          AWS_DEFAULT_REGION: eu-north-1 # Replace with your AWS region
         run: | 
           dvc push
 
@@ -98,8 +98,8 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
-          MLFLOW_S3_ENDPOINT_URL: https://s3.us-east-1.amazonaws.com
+          AWS_DEFAULT_REGION: eu-north-1
+          MLFLOW_S3_ENDPOINT_URL: https://s3.eu-north-1.amazonaws.com
           MLFLOW_TRACKING_URI: http://51.21.200.99:5000/
         run: |
           pytest scripts/test_load_model.py
@@ -108,8 +108,8 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
-          MLFLOW_S3_ENDPOINT_URL: https://s3.us-east-1.amazonaws.com
+          AWS_DEFAULT_REGION: eu-north-1
+          MLFLOW_S3_ENDPOINT_URL: https://s3.eu-north-1.amazonaws.com
           MLFLOW_TRACKING_URI: http://51.21.200.99:5000/
         run: |
           pytest scripts/test_model_signature.py
@@ -118,8 +118,8 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
-          MLFLOW_S3_ENDPOINT_URL: https://s3.us-east-1.amazonaws.com
+          AWS_DEFAULT_REGION: eu-north-1
+          MLFLOW_S3_ENDPOINT_URL: https://s3.eu-north-1.amazonaws.com
           MLFLOW_TRACKING_URI: http://51.21.200.99:5000/
         run: |
           pytest scripts/test_model_performance.py
@@ -129,8 +129,8 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
-          MLFLOW_S3_ENDPOINT_URL: https://s3.us-east-1.amazonaws.com
+          AWS_DEFAULT_REGION: eu-north-1
+          MLFLOW_S3_ENDPOINT_URL: https://s3.eu-north-1.amazonaws.com
           MLFLOW_TRACKING_URI: http://51.21.200.99:5000/
         run: python scripts/promote_model.py
 
@@ -154,7 +154,7 @@ jobs:
       - name: Push Docker image to AWS ECR
         if: success()
         run: |
-          docker push 390844758498.dkr.ecr.us-east-1.amazonaws.com/yt-chrome-plugin:latest
+          docker push 390844758498.dkr.ecr.eu-north-1.amazonaws.com/yt-chrome-plugin:latest
 
       # Zip the required files
       - name: Zip files for deployment

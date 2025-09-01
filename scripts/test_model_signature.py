@@ -2,7 +2,6 @@
 """
 Test script to verify model signature and compatibility
 """
-import pytest
 import sys
 import os
 import numpy as np
@@ -11,11 +10,21 @@ import numpy as np
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 try:
+    import pytest
+    PYTEST_AVAILABLE = True
+except ImportError:
+    PYTEST_AVAILABLE = False
+
+try:
     import joblib
     import pandas as pd
     from sklearn.feature_extraction.text import TfidfVectorizer
 except ImportError as e:
-    pytest.skip(f"Required packages not available: {e}")
+    if PYTEST_AVAILABLE:
+        pytest.skip(f"Required packages not available: {e}")
+    else:
+        print(f"Required packages not available: {e}")
+        sys.exit(1)
 
 def test_model_signature():
     """Test that model signature is compatible with expected input/output"""
@@ -47,15 +56,19 @@ def test_model_signature():
         assert isinstance(predictions, np.ndarray), "Predictions should be numpy array"
         assert len(predictions) == len(test_comments), "Should have one prediction per comment"
         
-        # Verify predictions are in expected range (assuming sentiment classes 0, 1, 2)
+        # Verify predictions are in expected range (sentiment classes -1, 0, 1)
         unique_predictions = np.unique(predictions)
         for pred in unique_predictions:
-            assert pred in [0, 1, 2], f"Prediction {pred} not in expected range [0, 1, 2]"
+            assert pred in [-1, 0, 1], f"Prediction {pred} not in expected range [-1, 0, 1]"
         
         print("✅ Model signature test passed")
         
     except Exception as e:
-        pytest.fail(f"Model signature test failed: {e}")
+        if PYTEST_AVAILABLE:
+            pytest.fail(f"Model signature test failed: {e}")
+        else:
+            print(f"❌ Model signature test failed: {e}")
+            raise
 
 def test_vectorizer_compatibility():
     """Test that vectorizer processes text correctly"""
@@ -84,7 +97,11 @@ def test_vectorizer_compatibility():
         print("✅ Vectorizer compatibility test passed")
         
     except Exception as e:
-        pytest.fail(f"Vectorizer compatibility test failed: {e}")
+        if PYTEST_AVAILABLE:
+            pytest.fail(f"Vectorizer compatibility test failed: {e}")
+        else:
+            print(f"❌ Vectorizer compatibility test failed: {e}")
+            raise
 
 if __name__ == "__main__":
     test_model_signature()
